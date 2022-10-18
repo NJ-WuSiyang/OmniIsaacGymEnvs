@@ -57,7 +57,7 @@ class PlaygroundTask(RLTask):
 
         super().set_up_scene(scene)
 
-        self._ur5es = Ur5eView(prim_paths_expr="/World/envs/.*/ur5e", name="ur5e_view")
+        self._ur5es = UR5eView(prim_paths_expr="/World/envs/.*/ur5e", name="ur5e_view")
 
         scene.add(self._ur5es)
 

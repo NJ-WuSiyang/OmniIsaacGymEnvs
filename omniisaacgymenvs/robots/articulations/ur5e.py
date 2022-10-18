@@ -63,7 +63,7 @@ class UR5e(Robot):
         drive_type = ["angular"] * len(dof_paths)
         stiffness = [1745.32922] * len(dof_paths)
         damping = [174.53293] * len(dof_paths)
-        max_force = [1500000] * 3 + [2800000 * 3]
+        max_force = [1500000] * 3 + [2800000] * 3
 
         for i, dof in enumerate(dof_paths):
             set_drive(
