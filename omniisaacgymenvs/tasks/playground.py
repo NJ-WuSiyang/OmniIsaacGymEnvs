@@ -9,7 +9,9 @@
 
 from omniisaacgymenvs.tasks.base.rl_task import RLTask
 from omniisaacgymenvs.robots.articulations.ur5e import UR5e
+from omniisaacgymenvs.robots.articulations.ur10 import UR10
 from omniisaacgymenvs.robots.articulations.views.ur5e_view import UR5eView
+from omniisaacgymenvs.robots.articulations.views.ur10_view import UR10View
 
 from omni.isaac.core.prims import RigidPrim, RigidPrimView
 from omni.isaac.core.utils.prims import get_prim_at_path
@@ -42,6 +44,9 @@ class PlaygroundTask(RLTask):
 
         self._max_episode_length = self._task_cfg["env"]["episodeLength"]
 
+        self._use_ur5e = self._task_cfg["env"]["use_ur5e"]
+        self._use_ur10 = self._task_cfg["env"]["use_ur10"]
+
         self.distX_offset = 0.04
         self.dt = 1/60.
 
@@ -53,16 +58,27 @@ class PlaygroundTask(RLTask):
 
     def set_up_scene(self, scene) -> None:
 
-        self.get_ur5e()
+        if self._use_ur5e:
+            self.get_ur5e()
+        elif self._use_ur10:
+            self.get_ur10()
 
         super().set_up_scene(scene)
 
-        self._ur5es = UR5eView(prim_paths_expr="/World/envs/.*/ur5e", name="ur5e_view")
-
-        scene.add(self._ur5es)
+        if self._use_ur5e:
+            self._ur5es = UR5eView(prim_paths_expr="/World/envs/.*/ur5e", name="ur5e_view")
+            scene.add(self._ur5es)
+        elif self._use_ur10:
+            self._ur10s = UR10View(prim_paths_expr="/World/envs/.*/ur10", name="ur10_view")
+            scene.add(self._ur10s)
 
         self.init_data()
         return
+
+    def get_ur10(self):
+        ur10 = UR10(prim_path=self.default_zero_env_path + "/ur10", name="ur10",
+                    usd_path=self._task_cfg["sim"]["ur10_usd_path"])
+        self._sim_config.apply_articulation_settings("ur10", get_prim_at_path(ur10.prim_path), self._sim_config.parse_actor_config("ur10"))
 
     def get_ur5e(self):
         ur5e = UR5e(prim_path=self.default_zero_env_path + "/ur5e", name="ur5e",
@@ -71,14 +87,24 @@ class PlaygroundTask(RLTask):
 
     def init_data(self) -> None:
         self.actions = torch.zeros((self._num_envs, self.num_actions), device=self._device)
-        self.ur5e_default_dof_pos = torch.zeros(6, device=self._device)
+        if self._use_ur5e:
+            self.ur5e_default_dof_pos = torch.zeros(6, device=self._device)
+        elif self._use_ur10:
+            self.ur10_default_dof_pos = torch.zeros(6, device=self._device)
 
     def get_observations(self) -> dict:
-        observations = {
-            self._ur5es.name: {
-                "obs_buf": self._ur5es.get_joint_positions(clone=False)
+        if self._use_ur5e:
+            observations = {
+                self._ur5es.name: {
+                    "obs_buf": self._ur5es.get_joint_positions(clone=False)
+                }
             }
-        }
+        elif self._use_ur10:
+            observations = {
+                self._ur10s.name: {
+                    "obs_buf": self._ur10s.get_joint_positions(clone=False)
+                }
+            }
         return observations
 
     def pre_physics_step(self, actions) -> None:
@@ -87,37 +113,60 @@ class PlaygroundTask(RLTask):
             self.reset_idx(reset_env_ids)
 
         self.actions = actions.clone().to(self._device)
-        targets = self.ur5e_dof_targets + self.dt * self.actions
-        self.ur5e_dof_targets[:] = targets
-        env_ids_int32 = torch.arange(self._ur5es.count, dtype=torch.int32, device=self._device)
 
-        self._ur5es.set_joint_position_targets(self.ur5e_dof_targets, indices=env_ids_int32)
+        if self._use_ur5e:
+            targets = self.ur5e_dof_targets + self.dt * self.actions
+            self.ur5e_dof_targets[:] = targets
+            env_ids_int32 = torch.arange(self._ur5es.count, dtype=torch.int32, device=self._device)
+
+            self._ur5es.set_joint_position_targets(self.ur5e_dof_targets, indices=env_ids_int32)
+        elif self._use_ur10:
+            targets = self.ur10_dof_targets + self.dt * self.actions
+            self.ur10_dof_targets[:] = targets
+            env_ids_int32 = torch.arange(self._ur10s.count, dtype=torch.int32, device=self._device)
+
+            self._ur10s.set_joint_position_targets(self.ur10_dof_targets, indices=env_ids_int32)
 
     def reset_idx(self, env_ids):
         indices = env_ids.to(dtype=torch.int32)
         num_indices = len(indices)
 
-        # reset franka
-        pos = self.ur5e_default_dof_pos.unsqueeze(0)
-        dof_pos = torch.zeros((num_indices, self._ur5es.num_dof), device=self._device)
-        dof_vel = torch.zeros((num_indices, self._ur5es.num_dof), device=self._device)
-        dof_pos[:, :] = pos
-        self.ur5e_dof_targets[env_ids, :] = pos
+        if self._use_ur5e:
+            pos = self.ur5e_default_dof_pos.unsqueeze(0)
+            dof_pos = torch.zeros((num_indices, self._ur5es.num_dof), device=self._device)
+            dof_vel = torch.zeros((num_indices, self._ur5es.num_dof), device=self._device)
+            dof_pos[:, :] = pos
+            self.ur5e_dof_targets[env_ids, :] = pos
 
-        self._ur5es.set_joint_position_targets(self.ur5e_dof_targets[env_ids], indices=indices)
-        self._ur5es.set_joint_positions(dof_pos, indices=indices)
-        self._ur5es.set_joint_velocities(dof_vel, indices=indices)
+            self._ur5es.set_joint_position_targets(self.ur5e_dof_targets[env_ids], indices=indices)
+            self._ur5es.set_joint_positions(dof_pos, indices=indices)
+            self._ur5es.set_joint_velocities(dof_vel, indices=indices)
+        elif self._use_ur10:
+            pos = self.ur10_default_dof_pos.unsqueeze(0)
+            dof_pos = torch.zeros((num_indices, self._ur10s.num_dof), device=self._device)
+            dof_vel = torch.zeros((num_indices, self._ur10s.num_dof), device=self._device)
+            dof_pos[:, :] = pos
+            self.ur10_dof_targets[env_ids, :] = pos
+
+            self._ur10s.set_joint_position_targets(self.ur10_dof_targets[env_ids], indices=indices)
+            self._ur10s.set_joint_positions(dof_pos, indices=indices)
+            self._ur10s.set_joint_velocities(dof_vel, indices=indices)
 
         # bookkeeping
         self.reset_buf[env_ids] = 0
         self.progress_buf[env_ids] = 0
 
     def post_reset(self):
-
-        self.num_ur5e_dofs = self._ur5es.num_dof
-        self.ur5e_dof_targets = torch.zeros(
-            (self._num_envs, self.num_ur5e_dofs), dtype=torch.float, device=self._device
-        )
+        if self._use_ur5e:
+            self.num_ur5e_dofs = self._ur5es.num_dof
+            self.ur5e_dof_targets = torch.zeros(
+                (self._num_envs, self.num_ur5e_dofs), dtype=torch.float, device=self._device
+            )
+        elif self._use_ur10:
+            self.num_ur10_dofs = self._ur10s.num_dof
+            self.ur10_dof_targets = torch.zeros(
+                (self._num_envs, self.num_ur10_dofs), dtype=torch.float, device=self._device
+            )
 
         # randomize all envs
         indices = torch.arange(self._num_envs, dtype=torch.int64, device=self._device)
