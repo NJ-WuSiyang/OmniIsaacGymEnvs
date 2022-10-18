@@ -27,9 +27,9 @@ env:
   actionPenaltyScale: 0.01
   fingerCloseRewardScale: 10.0
 
-  use_ur5e: False
+  use_ur5e: True
   use_ur10: False
-  use_myfranka: True
+  use_myfranka: False
 
 sim:
   dt: 0.0083 # 1/120 s
@@ -74,7 +74,7 @@ sim:
     gpu_temp_buffer_capacity: 16777216
     gpu_max_num_partitions: 8
 
-  ur5e_usd_path: "omniverse://localhost/Users/nj-wusiyang/robots/ur5e/ur5e.usd"
+  ur5e_usd_path: "omniverse://localhost/Users/nj-wusiyang/robots/ur5e/ur5e_urbullet_v2.usd"
   ur5e:
     # -1 to use default values
     override_usd_defaults: False
