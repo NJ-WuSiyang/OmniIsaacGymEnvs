@@ -78,7 +78,7 @@ sim:
   ur5e:
     # -1 to use default values
     override_usd_defaults: False
-    fixed_base: True
+    fixed_base: False
     enable_self_collisions: False
     enable_gyroscopic_forces: True
     # also in stage params
@@ -98,7 +98,7 @@ sim:
   ur10:
     # -1 to use default values
     override_usd_defaults: False
-    fixed_base: True
+    fixed_base: False
     enable_self_collisions: False
     enable_gyroscopic_forces: True
     # also in stage params
