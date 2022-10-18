@@ -54,7 +54,12 @@ class PlaygroundTask(RLTask):
         self.dt = 1/60.
 
         self._num_observations = 1
-        self._num_actions = 6
+        if self._use_ur5e:
+            self._num_actions = 6
+        elif self._use_ur10:
+            self._num_actions = 6
+        elif self._use_myfranka:
+            self._num_actions = 9
 
         RLTask.__init__(self, name, env)
         return
