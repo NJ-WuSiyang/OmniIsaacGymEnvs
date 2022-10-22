@@ -50,6 +50,15 @@ class UR5e(Robot):
             articulation_controller=None,
         )
 
+        import omni.usd
+        stage = omni.usd.get_context().get_stage()
+        prims = [stage.GetPrimAtPath(self.prim_path)]
+        while len(prims) > 0:
+            prim = prims.pop(0)
+            print(prim)
+            prims = prims + prim.GetChildren()
+
+
         dof_paths = [
             "base_link/shoulder_pan_joint",
             "shoulder_link/shoulder_lift_joint",
